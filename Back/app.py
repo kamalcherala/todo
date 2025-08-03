@@ -74,6 +74,7 @@ class Todo(db.Model):
     completed_at = db.Column(db.DateTime)
 
 # Initialize database with error handling
+print("🔄 Initializing database...")
 try:
     # Test database connection
     with app.app_context():
@@ -92,6 +93,8 @@ except Exception as e:
     except Exception as sqlite_error:
         print(f"❌ SQLite error: {sqlite_error}")
         exit(1)
+
+print("🔄 Database initialization complete, setting up routes...")
 
 # FIXED: Mailgun email sender with proper error handling
 def send_todo_email(user_email, todo_title):
@@ -470,29 +473,28 @@ def root():
     }), 200
 
 if __name__ == '__main__':
+    print("🔄 Starting main execution...")
+    
     try:
         port = int(os.environ.get('PORT', 5000))
         debug = os.environ.get('FLASK_ENV') == 'development'
         
-        print(f"🚀 Starting Flask app on port {port}")
+        print(f"🚀 Attempting to start Flask app...")
         print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
         print(f"🐛 Debug mode: {debug}")
-        print(f"🌐 CORS origins: http://localhost:8080, http://127.0.0.1:8080, http://localhost:3000")
+        print(f"🌐 Port: {port}")
+        print(f"🌐 Host: 0.0.0.0")
         
-        # Test if we can bind to the port
-        import socket
-        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            test_socket.bind(('0.0.0.0', port))
-            test_socket.close()
-            print(f"✅ Port {port} is available")
-        except OSError as e:
-            print(f"❌ Port {port} is not available: {e}")
-            exit(1)
+        print(f"🎯 Starting Flask development server...")
+        print(f"⚠️  Note: For production, use 'gunicorn app:app' instead")
         
-        print(f"🎯 About to start Flask server...")
-        app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
+        # Start the Flask development server (for local development only)
+        app.run(
+            host='0.0.0.0', 
+            port=port, 
+            debug=debug, 
+            threaded=True
+        )
         
     except KeyboardInterrupt:
         print("\n🛑 Server stopped by user")
@@ -501,3 +503,9 @@ if __name__ == '__main__':
         import traceback
         traceback.print_exc()
         exit(1)
+else:
+    print("📝 Module imported (likely by WSGI server)")
+
+# For production deployment (Render, Heroku, etc.)
+# The WSGI server will import this module and use the 'app' object
+print(f"✅ Flask app '{__name__}' ready for WSGI server")
