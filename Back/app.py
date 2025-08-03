@@ -470,16 +470,34 @@ def root():
     }), 200
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') == 'development'
-    
-    print(f"🚀 Starting Flask app on port {port}")
-    print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
-    print(f"🐛 Debug mode: {debug}")
-    print(f"🌐 CORS origins: http://localhost:8080, http://127.0.0.1:8080, http://localhost:3000")
-    
     try:
-        app.run(host='0.0.0.0', port=port, debug=debug)
+        port = int(os.environ.get('PORT', 5000))
+        debug = os.environ.get('FLASK_ENV') == 'development'
+        
+        print(f"🚀 Starting Flask app on port {port}")
+        print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
+        print(f"🐛 Debug mode: {debug}")
+        print(f"🌐 CORS origins: http://localhost:8080, http://127.0.0.1:8080, http://localhost:3000")
+        
+        # Test if we can bind to the port
+        import socket
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            test_socket.bind(('0.0.0.0', port))
+            test_socket.close()
+            print(f"✅ Port {port} is available")
+        except OSError as e:
+            print(f"❌ Port {port} is not available: {e}")
+            exit(1)
+        
+        print(f"🎯 About to start Flask server...")
+        app.run(host='0.0.0.0', port=port, debug=debug, threaded=True)
+        
+    except KeyboardInterrupt:
+        print("\n🛑 Server stopped by user")
     except Exception as e:
         print(f"❌ Failed to start Flask app: {e}")
+        import traceback
+        traceback.print_exc()
         exit(1)
