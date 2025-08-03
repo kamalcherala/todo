@@ -1,4 +1,3 @@
-from datetime import datetime, timedelta 
 import os
 import requests
 from flask import Flask, request, jsonify
@@ -12,12 +11,6 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-
-# Debug: Print environment variables
-print("Environment variables loaded:")
-print(f"PORT: {os.getenv('PORT')}")
-print(f"DATABASE_URL: {os.getenv('DATABASE_URL')[:50]}..." if os.getenv('DATABASE_URL') else "No DATABASE_URL")
-print(f"FLASK_ENV: {os.getenv('FLASK_ENV')}")
 
 app = Flask(__name__)
 
@@ -73,28 +66,10 @@ class Todo(db.Model):
     created_at = db.Column(db.DateTime, server_default=db.func.now())
     completed_at = db.Column(db.DateTime)
 
-# Initialize database with error handling
-print("🔄 Initializing database...")
-try:
-    # Test database connection
-    with app.app_context():
-        db.engine.connect()
-        print("✅ Database connection successful")
-        db.create_all()
-        print("✅ Database tables created successfully!")
-except Exception as e:
-    print(f"❌ Database error: {e}")
-    print("Falling back to SQLite...")
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///todo.db'
-    try:
-        with app.app_context():
-            db.create_all()
-            print("✅ SQLite database created successfully!")
-    except Exception as sqlite_error:
-        print(f"❌ SQLite error: {sqlite_error}")
-        exit(1)
-
-print("🔄 Database initialization complete, setting up routes...")
+# Initialize database
+with app.app_context():
+    db.create_all()
+    print("Database tables created successfully!")
 
 # FIXED: Mailgun email sender with proper error handling
 def send_todo_email(user_email, todo_title):
@@ -300,29 +275,14 @@ def todos():
             return jsonify({'error': 'User not found'}), 404
 
         if request.method == 'POST':
-            data = request.get_json()
-            if not data:
-                return jsonify({'error': 'No data provided'}), 400
-                
-            title = data.get('title', '').strip()
-            if not title:
-                return jsonify({'error': 'Title is required'}), 400
-            
-            # Convert due_date string to datetime if provided
-            due_date = None
-            if data.get('due_date'):
-                try:
-                    due_date = datetime.fromisoformat(data['due_date'].replace('Z', '+00:00'))
-                except ValueError:
-                    return jsonify({'error': 'Invalid due_date format'}), 400
-            
+            # ... rest of your POST logic
             todo = Todo(
                 title=title,
                 description=data.get('description', '').strip(),
                 priority=data.get('priority', 'medium'),
                 category=data.get('category', 'General'),
-                due_date=due_date,  # Use the converted datetime
-                user_id=int(user_id)
+                due_date=data.get('dueDate'),
+                user_id=int(user_id)  # Convert to int for DB
             )
             
             db.session.add(todo)
@@ -361,6 +321,7 @@ def todos():
                 'completed_at': t.completed_at.isoformat() if t.completed_at else None
             } for t in todos]), 200
 
+    
     except Exception as e:
         print(f"Todos error: {e}")
         db.session.rollback()
@@ -399,13 +360,7 @@ def modify_todo(todo_id):
             if 'starred' in data:
                 todo.starred = bool(data['starred'])
             if 'due_date' in data:
-                if data['due_date']:
-                    try:
-                        todo.due_date = datetime.fromisoformat(data['due_date'].replace('Z', '+00:00'))
-                    except ValueError:
-                        return jsonify({'error': 'Invalid due_date format'}), 400
-                else:
-                    todo.due_date = None
+                todo.due_date = data['due_date']
 
             db.session.commit()
             print(f"Todo updated successfully: {todo.title}")
@@ -450,62 +405,12 @@ def internal_error(error):
 def health_check():
     return jsonify({'status': 'healthy', 'message': 'Todo API is running'}), 200
 
-# Root route for basic health check
-@app.route('/', methods=['GET', 'HEAD'])
-def root():
-    if request.method == 'HEAD':
-        return '', 200
-    return jsonify({
-        'status': 'running',
-        'message': 'Todo API is healthy',
-        'endpoints': {
-            'health': '/health',
-            'test': '/test',
-            'auth': {
-                'register': '/register',
-                'login': '/login',
-                'google': '/auth/google',
-                'logout': '/logout'
-            },
-            'todos': '/todos',
-            'profile': '/profile'
-        }
-    }), 200
-
 if __name__ == '__main__':
-    print("🔄 Starting main execution...")
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
     
-    try:
-        port = int(os.environ.get('PORT', 5000))
-        debug = os.environ.get('FLASK_ENV') == 'development'
-        
-        print(f"🚀 Attempting to start Flask app...")
-        print(f"📊 Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
-        print(f"🐛 Debug mode: {debug}")
-        print(f"🌐 Port: {port}")
-        print(f"🌐 Host: 0.0.0.0")
-        
-        print(f"🎯 Starting Flask development server...")
-        print(f"⚠️  Note: For production, use 'gunicorn app:app' instead")
-        
-        # Start the Flask development server (for local development only)
-        app.run(
-            host='0.0.0.0', 
-            port=port, 
-            debug=debug, 
-            threaded=True
-        )
-        
-    except KeyboardInterrupt:
-        print("\n🛑 Server stopped by user")
-    except Exception as e:
-        print(f"❌ Failed to start Flask app: {e}")
-        import traceback
-        traceback.print_exc()
-        exit(1)
-else:
-    print("📝 Module imported (likely by WSGI server)")
-
-# For production deployment (Render, Heroku, etc.)
-# The WSGI server will import this module and use the 'app' object
-print(f"✅ Flask app '{__name__}' ready for WSGI server")
+    print(f"Starting Flask app on port {port}")
+    print(f"Database: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    print(f"Debug mode: {debug}")
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)
