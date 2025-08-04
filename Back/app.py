@@ -15,7 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # CORS configuration - FIXED
-CORS(app, origins=["https://todo-8izj.onrender.com/"], 
+CORS(app, origins=["https://todo-sy3q.vercel.app/"], 
      allow_headers=["Content-Type", "Authorization"],
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
